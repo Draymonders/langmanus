@@ -44,8 +44,8 @@ def code_node(state: State) -> Command[Literal["supervisor"]]:
     """Node for the coder agent that executes Python code."""
     logger.info("Code agent starting task")
     result = coder_agent.invoke(state)
+    logger.info(f"Code agent response: {result['messages'][-1].content}")
     logger.info("Code agent completed task")
-    logger.debug(f"Code agent response: {result['messages'][-1].content}")
     return Command(
         update={
             "messages": [
@@ -92,8 +92,8 @@ def supervisor_node(state: State) -> Command[Literal[*TEAM_MEMBERS, "__end__"]]:
         .invoke(messages)
     )
     goto = response["next"]
-    logger.debug(f"Current state messages: {state['messages']}")
-    logger.debug(f"Supervisor response: {response}")
+    logger.info(f"Current state messages: {state['messages']}")
+    logger.info(f"Supervisor response: {response}")
 
     if goto == "FINISH":
         goto = "__end__"
@@ -112,18 +112,18 @@ def planner_node(state: State) -> Command[Literal["supervisor", "__end__"]]:
     llm = get_llm_by_type("basic")
     if state.get("deep_thinking_mode"):
         llm = get_llm_by_type("reasoning")
-    if state.get("search_before_planning"):
-        searched_content = tavily_tool.invoke({"query": state["messages"][-1].content})
-        messages = deepcopy(messages)
-        messages[
-            -1
-        ].content += f"\n\n# Relative Search Results\n\n{json.dumps([{'titile': elem['title'], 'content': elem['content']} for elem in searched_content], ensure_ascii=False)}"
+    # if state.get("search_before_planning"):
+    #     searched_content = tavily_tool.invoke({"query": state["messages"][-1].content})
+    #     messages = deepcopy(messages)
+    #     messages[
+    #         -1
+    #     ].content += f"\n\n# Relative Search Results\n\n{json.dumps([{'titile': elem['title'], 'content': elem['content']} for elem in searched_content], ensure_ascii=False)}"
     stream = llm.stream(messages)
     full_response = ""
     for chunk in stream:
         full_response += chunk.content
-    logger.debug(f"Current state messages: {state['messages']}")
-    logger.debug(f"Planner response: {full_response}")
+    logger.info(f"Planner Current state messages: {state['messages']}")
+    logger.info(f"Planner response: {full_response}")
 
     if full_response.startswith("```json"):
         full_response = full_response.removeprefix("```json")
@@ -153,7 +153,7 @@ def coordinator_node(state: State) -> Command[Literal["planner", "__end__"]]:
     messages = apply_prompt_template("coordinator", state)
     response = get_llm_by_type(AGENT_LLM_MAP["coordinator"]).invoke(messages)
     logger.debug(f"Current state messages: {state['messages']}")
-    logger.debug(f"reporter response: {response}")
+    logger.info(f"coordinator response: {response.content}")
 
     goto = "__end__"
     if "handoff_to_planner" in response.content:
@@ -169,8 +169,8 @@ def reporter_node(state: State) -> Command[Literal["supervisor"]]:
     logger.info("Reporter write final report")
     messages = apply_prompt_template("reporter", state)
     response = get_llm_by_type(AGENT_LLM_MAP["reporter"]).invoke(messages)
-    logger.debug(f"Current state messages: {state['messages']}")
-    logger.debug(f"reporter response: {response}")
+    logger.info(f"Reporter Current state messages: {state['messages']}")
+    logger.info(f"Reporter response: {response.content}")
 
     return Command(
         update={

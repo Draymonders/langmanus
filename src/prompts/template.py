@@ -16,8 +16,12 @@ def get_prompt_template(prompt_name: str) -> str:
 
 
 def apply_prompt_template(prompt_name: str, state: AgentState) -> list:
+    template=get_prompt_template(prompt_name)
+    # print("prompt_name", template)
+
     system_prompt = PromptTemplate(
         input_variables=["CURRENT_TIME"],
-        template=get_prompt_template(prompt_name),
+        template=template,
     ).format(CURRENT_TIME=datetime.now().strftime("%a %b %d %Y %H:%M:%S %z"), **state)
+    
     return [{"role": "system", "content": system_prompt}] + state["messages"]
